@@ -925,3 +925,171 @@ BEGIN
     FETCH NEXT @PageSize ROWS ONLY;
 END
 GO
+
+
+
+//For foreign key consistents 
+
+
+//ForDetele Sale 
+-- ========================================
+-- FIX: Remove CASCADE to enforce foreign key protection
+-- ========================================
+USE [Posdb]
+GO
+
+-- ========================================
+-- STEP 1: Find and Drop the CASCADE foreign key
+-- ========================================
+DECLARE @ForeignKeyName NVARCHAR(256);
+DECLARE @DropSQL NVARCHAR(MAX);
+
+-- Find the foreign key name for SaleDetails -> Sales
+SELECT @ForeignKeyName = fk.name
+FROM sys.foreign_keys AS fk
+INNER JOIN sys.foreign_key_columns AS fkc 
+    ON fk.object_id = fkc.constraint_object_id
+WHERE OBJECT_NAME(fk.parent_object_id) = 'SaleDetails'
+    AND OBJECT_NAME(fk.referenced_object_id) = 'Sales'
+    AND COL_NAME(fkc.parent_object_id, fkc.parent_column_id) = 'SaleId';
+
+-- Drop the foreign key if it exists
+IF @ForeignKeyName IS NOT NULL
+BEGIN
+    SET @DropSQL = 'ALTER TABLE [dbo].[SaleDetails] DROP CONSTRAINT [' + @ForeignKeyName + '];';
+    EXEC sp_executesql @DropSQL;
+    PRINT '✅ Dropped CASCADE foreign key: ' + @ForeignKeyName;
+END
+ELSE
+BEGIN
+    PRINT '⚠️ Foreign key not found!';
+END
+
+GO
+
+-- ========================================
+-- STEP 2: Recreate foreign key WITHOUT CASCADE
+-- ========================================
+ALTER TABLE [dbo].[SaleDetails]
+ADD CONSTRAINT FK_SaleDetails_Sales
+FOREIGN KEY([SaleId])
+REFERENCES [dbo].[Sales]([SaleId]);
+-- ✅ NO CASCADE - Foreign key will now PREVENT deletion!
+
+PRINT '✅ Foreign key recreated WITHOUT CASCADE';
+PRINT '';
+PRINT '========================================';
+PRINT 'FIX COMPLETED SUCCESSFULLY!';
+PRINT '========================================';
+PRINT '';
+PRINT '✅ Now your sp_DeleteSale stored procedure will work correctly:';
+PRINT '   - If Sale has SaleDetails → Returns error message';
+PRINT '   - If Sale has no SaleDetails → Deletes successfully';
+PRINT '';
+PRINT '✅ Your backend error handling will now work as expected!';
+GO
+
+
+//Now for DeleteSaleDetails
+
+USE [Posdb]
+GO
+
+-- ========================================
+-- FIX: sp_DeleteSaleDetail - PREVENT deletion if part of a Sale
+-- ========================================
+ALTER PROCEDURE [dbo].[sp_DeleteSaleDetail]
+    @SaleDetailId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        -- Check if sale detail exists
+        IF NOT EXISTS (SELECT 1 FROM SaleDetails WHERE SaleDetailId = @SaleDetailId)
+        BEGIN
+            SELECT 0 AS Success, 'Sale detail not found.' AS Message;
+            RETURN;
+        END
+        
+        -- ✅ NEW CHECK: Prevent deletion if this SaleDetail belongs to a Sale
+        DECLARE @SaleId INT;
+        SELECT @SaleId = SaleId FROM SaleDetails WHERE SaleDetailId = @SaleDetailId;
+        
+        IF @SaleId IS NOT NULL
+        BEGIN
+            SELECT 0 AS Success, 
+                   'Cannot delete sale detail. This item is part of Sale ID ' + CAST(@SaleId AS NVARCHAR(10)) + 
+                   '. Please delete the entire sale instead, or remove this item from the sale first.' AS Message;
+            RETURN;
+        END
+        
+        -- If we reach here, it means SaleId is NULL (orphaned record - shouldn't happen)
+        -- Only then allow deletion
+        DELETE FROM SaleDetails
+        WHERE SaleDetailId = @SaleDetailId;
+        
+        IF @@ROWCOUNT > 0
+            SELECT 1 AS Success, 'Sale detail deleted successfully.' AS Message;
+        ELSE
+            SELECT 0 AS Success, 'Failed to delete sale detail.' AS Message;
+            
+    END TRY
+    BEGIN CATCH
+        IF ERROR_NUMBER() = 547
+            SELECT 0 AS Success, 'Cannot delete sale detail. This record is referenced by other records in the database.' AS Message;
+        ELSE
+            SELECT 0 AS Success, 'Database error: ' + ERROR_MESSAGE() AS Message;
+    END CATCH
+END
+GO
+
+-- ========================================
+-- FIX: sp_DeleteSaleDetailsBySaleId - Also update this one
+-- ========================================
+ALTER PROCEDURE [dbo].[sp_DeleteSaleDetailsBySaleId]
+    @SaleId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        -- ✅ Check if Sale exists
+        IF NOT EXISTS (SELECT 1 FROM Sales WHERE SaleId = @SaleId)
+        BEGIN
+            SELECT 0 AS Success, 'Sale not found.' AS Message;
+            RETURN;
+        END
+        
+        -- ✅ Prevent deletion - require deleting the Sale first
+        IF EXISTS (SELECT 1 FROM SaleDetails WHERE SaleId = @SaleId)
+        BEGIN
+            SELECT 0 AS Success, 
+                   'Cannot delete sale details. These items are part of an active sale. Please delete the entire sale (Sale ID ' + 
+                   CAST(@SaleId AS NVARCHAR(10)) + ') to remove all associated items.' AS Message;
+            RETURN;
+        END
+        
+        -- If no details exist, return success
+        SELECT 1 AS Success, 'No sale details found for this sale.' AS Message;
+            
+    END TRY
+    BEGIN CATCH
+        IF ERROR_NUMBER() = 547
+            SELECT 0 AS Success, 'Cannot delete sale details. They are referenced by other records.' AS Message;
+        ELSE
+            SELECT 0 AS Success, 'Database error: ' + ERROR_MESSAGE() AS Message;
+    END CATCH
+END
+GO
+
+PRINT '========================================';
+PRINT '✅ FIXED: Both stored procedures updated!';
+PRINT '========================================';
+PRINT '';
+PRINT '✅ sp_DeleteSaleDetail now PREVENTS deletion';
+PRINT '✅ sp_DeleteSaleDetailsBySaleId now PREVENTS deletion';
+PRINT '';
+PRINT 'Now BOTH Sale and SaleDetail cannot be deleted!';
+PRINT 'Users must delete the entire Sale to remove items.';
+PRINT '========================================';
