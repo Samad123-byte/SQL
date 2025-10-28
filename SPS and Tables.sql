@@ -869,3 +869,59 @@ BEGIN
     ORDER BY SaleDate DESC;
 END
 GO
+
+
+//order 
+USE [Posdb]
+GO
+
+-- ✅ Fix sp_GetAllProducts - Show newest first
+ALTER PROCEDURE [dbo].[sp_GetAllProducts]
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+
+    SELECT 
+        ProductId,
+        Name,
+        Code,
+        ImageURL,
+        CostPrice,
+        RetailPrice,
+        CreationDate,
+        UpdatedDate,
+        (SELECT COUNT(*) FROM Products) AS TotalRecords
+    FROM Products
+    ORDER BY ProductId DESC  -- ✅ CHANGED: DESC instead of ASC (newest first!)
+    OFFSET @Offset ROWS
+    FETCH NEXT @PageSize ROWS ONLY;
+END
+GO
+
+-- ✅ Fix sp_GetAllSalespersons - Show newest first
+ALTER PROCEDURE [dbo].[sp_GetAllSalespersons]
+    @PageNumber INT = 1,
+    @PageSize INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Offset INT = (@PageNumber - 1) * @PageSize;
+
+    SELECT 
+        SalespersonId,
+        Name,
+        Code,
+        EnteredDate,
+        UpdatedDate,
+        (SELECT COUNT(*) FROM Salesperson) AS TotalRecords
+    FROM Salesperson
+    ORDER BY SalespersonId DESC  -- ✅ CHANGED: DESC instead of ASC (newest first!)
+    OFFSET @Offset ROWS
+    FETCH NEXT @PageSize ROWS ONLY;
+END
+GO
