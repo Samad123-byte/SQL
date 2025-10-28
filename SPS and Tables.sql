@@ -747,7 +747,7 @@ END
 
 
 
-//New table and Sps for Sales one 
+//New table and Sps for Sales one create Date
 	
 	
 USE [Posdb]
@@ -1093,3 +1093,4 @@ PRINT '';
 PRINT 'Now BOTH Sale and SaleDetail cannot be deleted!';
 PRINT 'Users must delete the entire Sale to remove items.';
 PRINT '========================================';
+
