@@ -744,3 +744,128 @@ BEGIN
     OFFSET @Offset ROWS
     FETCH NEXT @PageSize ROWS ONLY;
 END
+
+
+
+//New table and Sps for Sales one 
+	
+	
+USE [Posdb]
+GO
+-- Add CreatedDate column with automatic default
+ALTER TABLE [dbo].[Sales] 
+ADD [CreatedDate] [datetime] NOT NULL 
+CONSTRAINT DF_Sales_CreatedDate DEFAULT (GETDATE());
+GO
+-- Update existing records to use their SaleDate as CreatedDate
+UPDATE [dbo].[Sales] 
+SET CreatedDate = SaleDate;
+GO
+
+USE [Posdb]
+GO
+
+-- ✅ Update sp_GetAllSales
+ALTER PROCEDURE [dbo].[sp_GetAllSales]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        SaleId,
+        Total,
+        SaleDate,
+        SalespersonId,
+        Comments,
+        CreatedDate,    -- ✅ ADDED
+        UpdatedDate
+    FROM Sales
+    ORDER BY SaleId DESC;
+END
+GO
+
+-- ✅ Update sp_GetSaleById
+ALTER PROCEDURE [dbo].[sp_GetSaleById]
+    @SaleId INT
+AS
+BEGIN
+    SELECT 
+        SaleId, 
+        Total, 
+        SaleDate, 
+        SalespersonId, 
+        Comments, 
+        CreatedDate,    -- ✅ ADDED
+        UpdatedDate
+    FROM Sales
+    WHERE SaleId = @SaleId;
+END
+GO
+
+-- ✅ Update sp_CreateSale (CreatedDate automatically set by DEFAULT constraint)
+ALTER PROCEDURE [dbo].[sp_CreateSale]
+    @Total DECIMAL(10, 2),
+    @SaleDate DATETIME,
+    @SalespersonId INT = NULL,
+    @Comments NVARCHAR(500) = NULL
+AS
+BEGIN
+    DECLARE @NewSaleId INT;
+    
+    -- CreatedDate will automatically be set to GETDATE() by the DEFAULT constraint
+    INSERT INTO Sales (Total, SaleDate, SalespersonId, Comments, UpdatedDate)
+    VALUES (@Total, @SaleDate, @SalespersonId, @Comments, NULL);
+    
+    SET @NewSaleId = SCOPE_IDENTITY();
+    
+    SELECT 
+        SaleId, 
+        Total, 
+        SaleDate, 
+        SalespersonId, 
+        Comments, 
+        CreatedDate,    -- ✅ ADDED
+        UpdatedDate
+    FROM Sales
+    WHERE SaleId = @NewSaleId;
+END
+GO
+
+-- ✅ Update sp_GetSalesByDateRange
+ALTER PROCEDURE [dbo].[sp_GetSalesByDateRange]
+    @StartDate DATETIME,
+    @EndDate DATETIME
+AS
+BEGIN
+    SELECT 
+        SaleId, 
+        Total, 
+        SaleDate, 
+        SalespersonId, 
+        Comments, 
+        CreatedDate,    -- ✅ ADDED
+        UpdatedDate
+    FROM Sales
+    WHERE SaleDate BETWEEN @StartDate AND @EndDate
+    ORDER BY SaleDate DESC;
+END
+GO
+
+-- ✅ Update sp_GetSalesBySalesperson
+ALTER PROCEDURE [dbo].[sp_GetSalesBySalesperson]
+    @SalespersonId INT
+AS
+BEGIN
+    SELECT 
+        SaleId, 
+        Total, 
+        SaleDate, 
+        SalespersonId, 
+        Comments, 
+        CreatedDate,    -- ✅ ADDED
+        UpdatedDate
+    FROM Sales
+    WHERE SalespersonId = @SalespersonId
+    ORDER BY SaleDate DESC;
+END
+GO
