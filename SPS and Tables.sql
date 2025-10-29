@@ -1151,4 +1151,45 @@ BEGIN
 END
 
 
+//This for Update to find duplicate 
+USE [PosDb]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[sp_UpdateProduct]
+    @ProductId INT,
+    @Name NVARCHAR(100),
+    @Code NVARCHAR(50) = NULL,
+    @ImageURL NVARCHAR(255) = NULL,
+    @CostPrice DECIMAL(10, 2) = NULL,
+    @RetailPrice DECIMAL(10, 2) = NULL
+AS
+BEGIN
+    -- Check for duplicate Name or Code excluding the current product
+    IF EXISTS (
+        SELECT 1 
+        FROM Products 
+        WHERE ProductId <> @ProductId 
+          AND (Name = @Name OR (@Code IS NOT NULL AND Code = @Code))
+    )
+    BEGIN
+        SELECT -1 AS Result; -- Duplicate found
+    END
+    ELSE
+    BEGIN
+        UPDATE Products
+        SET Name = @Name,
+            Code = @Code,
+            ImageURL = @ImageURL,
+            CostPrice = @CostPrice,
+            RetailPrice = @RetailPrice,
+            UpdatedDate = GETDATE()
+        WHERE ProductId = @ProductId;
+
+        SELECT 1 AS Result; -- Success
+    END
+END
 
