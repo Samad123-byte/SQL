@@ -1227,3 +1227,39 @@ BEGIN
     END
 END
 
+USE [PosDb]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[sp_UpdateSalesperson]
+    @SalespersonId INT,
+    @Name NVARCHAR(100),
+    @Code NVARCHAR(50),
+    @EnteredDate DATETIME = NULL
+AS
+BEGIN
+    -- Check for duplicate Name or Code excluding the current salesperson
+    IF EXISTS (
+        SELECT 1 
+        FROM Salesperson 
+        WHERE SalespersonId <> @SalespersonId
+          AND (Name = @Name OR Code = @Code)
+    )
+    BEGIN
+        SELECT -1 AS Result; -- Duplicate found
+    END
+    ELSE
+    BEGIN
+        UPDATE Salesperson
+        SET Name = @Name,
+            Code = @Code,
+            EnteredDate = @EnteredDate,
+            UpdatedDate = GETDATE()
+        WHERE SalespersonId = @SalespersonId;
+
+        SELECT 1 AS Result; -- Success
+    END
+END
