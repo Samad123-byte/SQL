@@ -1193,3 +1193,37 @@ BEGIN
     END
 END
 
+
+USE [PosDb]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[sp_CreateProduct]
+    @Name NVARCHAR(100),
+    @Code NVARCHAR(50) = NULL,
+    @ImageURL NVARCHAR(255) = NULL,
+    @CostPrice DECIMAL(10, 2) = NULL,
+    @RetailPrice DECIMAL(10, 2) = NULL
+AS
+BEGIN
+    -- Check for duplicate Name or Code
+    IF EXISTS (
+        SELECT 1 
+        FROM Products 
+        WHERE Name = @Name OR (@Code IS NOT NULL AND Code = @Code)
+    )
+    BEGIN
+        SELECT -1 AS Result; -- Duplicate found
+    END
+    ELSE
+    BEGIN
+        INSERT INTO Products (Name, Code, ImageURL, CostPrice, RetailPrice, CreationDate, UpdatedDate)
+        VALUES (@Name, @Code, @ImageURL, @CostPrice, @RetailPrice, GETDATE(), NULL);
+
+        SELECT 1 AS Result; -- Success
+    END
+END
+
