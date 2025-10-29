@@ -1094,3 +1094,33 @@ PRINT 'Now BOTH Sale and SaleDetail cannot be deleted!';
 PRINT 'Users must delete the entire Sale to remove items.';
 PRINT '========================================';
 
+
+
+
+//new one for DeleteSalePerson SP 
+
+ALTER PROCEDURE [dbo].[sp_DeleteSalesperson]
+    @SalespersonId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if Salesperson exists
+    IF NOT EXISTS (SELECT 1 FROM Salesperson WHERE SalespersonId = @SalespersonId)
+    BEGIN
+        RETURN -1; -- not found
+    END
+
+    -- Check for foreign key dependencies (Sales or SaleDetails etc.)
+    IF EXISTS (SELECT 1 FROM Sales WHERE SalespersonId = @SalespersonId)
+    BEGIN
+        RETURN -2; -- has foreign key reference, cannot delete
+    END
+
+    -- If safe, delete the record
+    DELETE FROM Salesperson WHERE SalespersonId = @SalespersonId;
+
+    RETURN @@ROWCOUNT; -- 1 means deleted successfully
+END
+
+
