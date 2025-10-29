@@ -1263,3 +1263,35 @@ BEGIN
         SELECT 1 AS Result; -- Success
     END
 END
+
+
+USE [PosDb]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[sp_InsertSalesperson]
+    @Name NVARCHAR(100),
+    @Code NVARCHAR(50),
+    @EnteredDate DATETIME = NULL
+AS
+BEGIN
+    -- Check for duplicate Name or Code
+    IF EXISTS (
+        SELECT 1 
+        FROM Salesperson 
+        WHERE Name = @Name OR Code = @Code
+    )
+    BEGIN
+        SELECT -1 AS Result; -- Duplicate found
+    END
+    ELSE
+    BEGIN
+        INSERT INTO Salesperson (Name, Code, EnteredDate, UpdatedDate)
+        VALUES (@Name, @Code, ISNULL(@EnteredDate, GETDATE()), NULL);
+
+        SELECT 1 AS Result; -- Success
+    END
+END
