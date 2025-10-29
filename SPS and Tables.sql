@@ -1123,4 +1123,32 @@ BEGIN
     RETURN @@ROWCOUNT; -- 1 means deleted successfully
 END
 
+//FOR DELETE Products 
+
+ALTER PROCEDURE [dbo].[sp_DeleteProduct]
+    @ProductId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- ✅ Check if product is used in SaleDetails
+    IF EXISTS (SELECT 1 FROM SaleDetails WHERE ProductId = @ProductId)
+    BEGIN
+        -- Product is referenced elsewhere — can’t delete
+        SELECT -1 AS Result;  
+        RETURN;
+    END
+
+    -- ✅ Try to delete
+    DELETE FROM Products
+    WHERE ProductId = @ProductId;
+
+    -- ✅ Return 1 if deleted, 0 if not found
+    IF @@ROWCOUNT > 0
+        SELECT 1 AS Result;
+    ELSE
+        SELECT 0 AS Result;
+END
+
+
 
