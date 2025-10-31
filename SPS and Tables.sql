@@ -1295,3 +1295,40 @@ BEGIN
         SELECT 1 AS Result; -- Success
     END
 END
+
+
+
+USE [PosDb]
+GO
+/****** Object:  StoredProcedure [dbo].[sp_CreateSale]    Script Date: 10/31/2025 10:50:29 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[sp_CreateSale]
+    @Total DECIMAL(10, 2),
+    @SalespersonId INT = NULL,
+    @Comments NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @NewSaleId INT;
+
+    INSERT INTO Sales (Total, SalespersonId, Comments, UpdatedDate)
+    VALUES (@Total, @SalespersonId, @Comments, NULL);
+
+    SET @NewSaleId = SCOPE_IDENTITY();
+
+    SELECT 
+        SaleId, 
+        Total, 
+        SaleDate,        -- auto GETDATE() from default
+        SalespersonId, 
+        Comments, 
+        CreatedDate,
+        UpdatedDate
+    FROM Sales
+    WHERE SaleId = @NewSaleId;
+END
+
